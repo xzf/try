@@ -1,6 +1,7 @@
 package try
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -9,61 +10,57 @@ type catchObj struct {
 	logic func()
 }
 
-func (obj *catchObj) Catch(cb func(info interface{})) {
+func (obj *catchObj) Catch(cb func(info *PanicInfo)) (result *PanicInfo) {
+	if obj.logic == nil {
+		return
+	}
 	defer func() {
 		errInfo := recover()
 		if errInfo != nil {
 			if cb != nil {
-				cb(errInfo)
+				result = &PanicInfo{
+					OriginObj: errInfo,
+					ErrMsg:    obj.panicInfoToString(errInfo),
+					Err:       obj.panicInfoToErr(errInfo),
+					Stack:     readStack(),
+				}
+				cb(result)
 			}
+			return
 		}
 	}()
-	if obj.logic != nil {
-		obj.logic()
-	}
-}
-
-func (obj *catchObj) Err() (err error) {
-	obj.Catch(func(panicInfo interface{}) {
-		err = obj.panicInfoToErr(panicInfo)
-	})
-	return err
-}
-
-func (obj *catchObj) ErrMsg() (errMsg string) {
-	obj.Catch(func(panicInfo interface{}) {
-		errMsg = obj.panicInfoToString(panicInfo)
-	})
-	return errMsg
-}
-
-func (obj *catchObj) Stack() (stack string) {
-	obj.Catch(func(interface{}) {
-		stack = readStack()
-	})
+	obj.logic()
 	return
 }
 
-func (obj *catchObj) ErrMsgAndStack() (errMsg string, stack string) {
-	obj.Catch(func(panicInfo interface{}) {
-		errMsg = obj.panicInfoToString(panicInfo)
-		stack = readStack()
-	})
-	return
+func (obj *catchObj) DoNothing() *PanicInfo {
+	return obj.Catch(nil)
 }
 
-func (obj *catchObj) ErrAndStack() (err error, stack string) {
-	obj.Catch(func(panicInfo interface{}) {
-		err = obj.panicInfoToErr(panicInfo)
-		stack = readStack()
+func (obj *catchObj) Log() *PanicInfo {
+	return obj.Catch(func(info *PanicInfo) {
+		fmt.Println("PanicInfo", info.OriginObj)
+		fmt.Println("ErrMsg", info.ErrMsg)
+		fmt.Println("Stack", info.Stack)
 	})
-	return
 }
 
 func (obj *catchObj) panicInfoToString(panicInfo interface{}) string {
-	return fmt.Sprintf("%v", panicInfo)
+	str, ok := panicInfo.(string)
+	if ok {
+		return str
+	}
+	content, err := json.Marshal(panicInfo)
+	if err != nil {
+		return fmt.Sprintf("%v", panicInfo)
+	}
+	return string(content)
 }
 
 func (obj *catchObj) panicInfoToErr(panicInfo interface{}) error {
+	err, ok := panicInfo.(error)
+	if ok {
+		return err
+	}
 	return errors.New(obj.panicInfoToString(panicInfo))
 }

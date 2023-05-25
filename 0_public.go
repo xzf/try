@@ -5,3 +5,10 @@ func Try(logic func()) *catchObj {
 		logic: logic,
 	}
 }
+
+type PanicInfo struct {
+	OriginObj interface{}
+	ErrMsg    string
+	Err       error
+	Stack     string
+}
