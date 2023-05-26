@@ -11,9 +11,6 @@ type catchObj struct {
 }
 
 func (obj *catchObj) Catch(cb func(info *PanicInfo)) (result *PanicInfo) {
-	if obj.logic == nil {
-		return
-	}
 	defer func() {
 		errInfo := recover()
 		if errInfo != nil {
@@ -29,7 +26,9 @@ func (obj *catchObj) Catch(cb func(info *PanicInfo)) (result *PanicInfo) {
 			return
 		}
 	}()
-	obj.logic()
+	if obj.logic != nil {
+		obj.logic()
+	}
 	return
 }
 
@@ -46,6 +45,10 @@ func (obj *catchObj) Log() *PanicInfo {
 }
 
 func (obj *catchObj) panicInfoToString(panicInfo interface{}) string {
+	err, ok := panicInfo.(error)
+	if ok {
+		return err.Error()
+	}
 	str, ok := panicInfo.(string)
 	if ok {
 		return str
